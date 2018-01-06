@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-server_config="server_config"
+server_config=`ls ~/.server_config`
+expect_script_file="/tmp/xx.expect"
 
 xx_help (){
     # Use colors, but only if connected to a terminal, and that terminal
@@ -45,8 +46,8 @@ check_config (){
     #check config file
     if [ ! -f ${server_config} ]; then
         xx_help
-	    echo "error: server_config not exits!";
-	    exit;
+        echo "error: server_config not exits!";
+        exit;
     fi
 }
 
@@ -76,20 +77,41 @@ main(){
     eval $(grep ${server_name} ${server_config} |awk '{ printf("ip=%s;port=%s;username=%s;password=%s;", $2,$3,$4,$5) }')
 
     #expect logic
-    command="
-        expect {
-                \"*assword\" {set timeout 10; send \"${password}\n\"; exp_continue ; sleep 3; }
-                \"*passphrase\" {set timeout 10; send \"${password}\r\n\"; exp_continue ; sleep 3; }
-                \"yes/no\" {send \"yes\n\"; exp_continue;}
-                \"Last*\" {  send_user \"\n login success on:【${server_name} ${ip}】\n\";}
-        }
-       interact
-    ";
+    cat >${expect_script_file}<<EOF
 
-    expect -c "
-		spawn ssh -p ${port} ${username}@${ip}
-		${command}
-	"
+trap {
+ set rows [stty rows]
+ set cols [stty columns]
+ stty rows \$rows columns \$cols < \$spawn_out(slave,name)
+} WINCH
+
+spawn ssh -p ${port} ${username}@${ip}
+expect {
+        "*assword" {
+            set timeout 10;
+            send "${password}\n";
+            exp_continue;
+        }
+        "*passphrase" {
+            set timeout 10;
+            send "${password}\r\n";
+            exp_continue;
+         }
+        "yes/no" {
+            send "yes\n";
+            exp_continue;
+         }
+        "Last*" {
+            send_user "\nlogin success on:【${server_name} ${ip}】 enjoy!\n";
+         }
+}
+interact
+
+EOF
+
+    #cat ${expect_script_file} # Uncomment for debug
+    expect -f ${expect_script_file} # run expect script
+    rm ${expect_script_file} # remove expect script
 }
 
 if [ 1 != $# ]; then
