@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
-server_config=`ls ~/.server_config`
-expect_script_file="/tmp/xx.expect"
+server_config=~/.server_config
+expect_script_file=/tmp/xx.expect
 
-xx_help (){
+print_color (){
     # Use colors, but only if connected to a terminal, and that terminal
     # supports them.
-    if which tput >/dev/null 2>&1; then
+    if [ -x "$(command -v tput)" ]; then
       ncolors=$(tput colors)
     fi
     if [ -t 1 ] && [ -n "$ncolors" ] && [ "$ncolors" -ge 8 ]; then
@@ -25,56 +25,113 @@ xx_help (){
         NORMAL=""
     fi
 
-    printf "${GREEN}"
-    echo '                      .__            '
-    echo '___  _____ __  _____|  |__   ____    '
-    echo '\  \/  /  |  \/  ___/  |  \_/ ___\   '
-    echo ' >    <|  |  /\___ \|   Y  \  \___   '
-    echo '/__/\_ \____//____  >___|  /\___  >  '
-    echo '      \/          \/     \/     \/   '
-    printf "${NORMAL}"
+    tips="$1"
+    color="$2"
 
-    echo "server list:"
-    awk '
-    BEGIN { print "Tag    Ip    Port   Name    Password"; print ""}
-    { print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5; print "" }
-    END { print "useage: xx server_tag"; print "" }
-    ' ${server_config}
+    case "${color}" in
+        "RED")
+            printf "%s" "${RED}"
+            echo -e "tips:\\n\\t${tips}"
+            printf "%s" "${NORMAL}"
+        ;;
+        "GREEN")
+            printf "%s" "${GREEN}"
+            echo -e "tips:\\n\\t${tips}"
+            printf "%s" "${NORMAL}"
+        ;;
+        "YELLOW")
+            printf "%s" "${YELLOW}"
+            echo -e "tips:\\n\\t${tips}"
+            printf "%s" "${NORMAL}"
+        ;;
+        "BLUE")
+            printf "%s" "${BLUE}"
+            echo -e "tips:\\n\\t${tips}"
+            printf "%s" "${NORMAL}"
+        ;;
+        "BOLD")
+            printf "%s" "${BOLD}"
+            echo -e "tips:\\n\\t${tips}"
+            printf "%s" "${NORMAL}"
+        ;;
+        "HELP")
+            printf "%s" "${RED}"
+            echo '                      .__            '
+            echo '___  _____ __  _____|  |__   ____    '
+            echo '\  \/  /  |  \/  ___/  |  \_/ ___\   '
+            echo ' >    <|  |  /\___ \|   Y  \  \___   '
+            echo '/__/\_ \____//____  >___|  /\___  >  '
+            echo '      \/          \/     \/     \/   '
+            printf "%s" "${NORMAL}"
+
+            echo
+
+            printf "%s" "${GREEN}"
+            echo -e "${tips}"
+            printf "%s" "${NORMAL}"
+        ;;
+        *)
+            echo -e "${tips}"
+        ;;
+    esac
+}
+
+xx_help (){
+
+    read -rd '' tips <<EOF
+server list:
+
+$(awk 'BEGIN { print "Tag    Ip    Port   Name    Password"; print ""} { print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5; print "" } END { print "useage: xx server_tag"; print "" }' ${server_config})
+EOF
+
+    print_color "${tips}" "HELP";
+
+    echo;
 }
 
 check_config (){
     #check config file
     if [ ! -f ${server_config} ]; then
         xx_help
-        echo "error: server_config not exits!";
+        tips="error: server_config not exits!";
+        print_color "${tips}" "YELLOW";
         exit;
+    fi
+}
+
+check_input (){
+    #expect a server name
+    server_name="$1";
+
+    cnt=$(grep -c "^${server_name}" ${server_config});
+
+    if [ "${cnt}" -gt 1 ]; then
+        xx_help
+        tips="multiple servers detected, please make it more clear.";
+        print_color "${tips}" "YELLOW";
+        exit
+    elif [ "${cnt}" -eq 0 ]; then
+        xx_help
+        tips="none server detected, please check your server names.";
+        print_color "${tips}" "YELLOW";
+        exit
     fi
 }
 
 main(){
     # Only enable exit-on-error after the non-critical colorization stuff,
     # which may fail on systems lacking tput or terminfo
-    set -e
+    #set -e
+    #set -x
 
+    #check the config file
     check_config
 
-    server_name=$1
-
     #check input
-    cnt=`grep ${server_name} ${server_config} | wc -l`
-
-    if [ ${cnt} -gt 1 ]; then
-        xx_help
-        echo "multiple servers detected, please make it more clear!!!"
-        exit
-    elif [ ${cnt} -eq 0 ]; then
-        xx_help
-        echo "none server detected, please check your server names!"
-        exit
-    fi
+    check_input "$1"
 
     #split ssh params
-    eval $(grep ${server_name} ${server_config} |awk '{ printf("ip=%s;port=%s;username=%s;password=%s;", $2,$3,$4,$5) }')
+    eval "$(grep "^${server_name}" ${server_config} |awk '{ printf("ip=%s;port=%s;username=%s;password=%s;", $2,$3,$4,$5) }')"
 
     #expect logic
     cat >${expect_script_file}<<EOF
@@ -117,5 +174,5 @@ EOF
 if [ 1 != $# ]; then
     xx_help
 else
-    main $1
+    main "$1"
 fi
