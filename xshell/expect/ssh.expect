@@ -1,0 +1,37 @@
+#!/usr/bin/expect
+
+set username [lindex $argv 0]
+set password [lindex $argv 1]
+set ip [lindex $argv 2]
+set port [lindex $argv 3]
+set server_name [lindex $argv 4]
+
+trap {
+ set rows [stty rows]
+ set cols [stty columns]
+ stty rows $rows columns $cols < $spawn_out(slave,name)
+} WINCH
+
+spawn ssh -p ${port} ${username}@${ip}
+expect {
+        "*assword" {
+            set timeout 10;
+            send "${password}\n";
+            exp_continue;
+        }
+        "*passphrase" {
+            set timeout 10;
+            send "${password}\r\n";
+            exp_continue;
+         }
+        "yes/no" {
+            send "yes\n";
+            exp_continue;
+         }
+        "Last*" {
+            puts "\nlogin success on:【${server_name} ${ip}】 enjoy!\n";
+            send "PROMPT_COMMAND='echo -ne \"\\033]0; ${server_name}-${ip} \\007\"' \r";
+            send "clear\r";
+         }
+}
+interact

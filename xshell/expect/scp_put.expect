@@ -1,0 +1,25 @@
+#!/usr/bin/expect
+
+set username [lindex $argv 0]
+set password [lindex $argv 1]
+set ip [lindex $argv 2]
+set port [lindex $argv 3]
+set src [lindex $argv 4]
+set dst [lindex $argv 5]
+
+spawn scp $src $username@$ip:$dst
+
+expect {
+    "yes/no" { 
+        send "yes\r";
+        exp_continue
+    }
+    "*password:" {
+        send "$password\r"
+    }
+}
+
+expect eof {
+    send_user "finished!"
+    exit
+}

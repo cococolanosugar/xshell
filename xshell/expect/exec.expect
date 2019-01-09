@@ -1,0 +1,28 @@
+#!/usr/bin/expect
+
+set username [lindex $argv 0]
+set password [lindex $argv 1]
+set ip [lindex $argv 2]
+set port [lindex $argv 3]
+set cmd [lindex $argv 4]
+
+spawn ssh root@$ip
+
+expect {
+    "yes/no" { 
+        send "yes\r";
+        exp_continue
+    }
+    "*password:" {
+        send "$password\r"
+    }
+}
+
+expect "*#"
+send "$cmd\r"
+
+expect "*#"
+send_user "finished!"
+#send "exit"
+
+interact
